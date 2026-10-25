@@ -1,6 +1,6 @@
 # SISTER L1 preprocess bundle
 
-SISTER (Space-based Imaging Spectroscopy and Thermal PathfindER) was JPL's pathfinder workflow for the Surface Biology and Geology (SBG) mission. Its first step, the L1 preprocess PGE, takes an imaging spectroscopy granule in its native format (AVIRIS-Classic, AVIRIS-NG, DESIS, PRISMA or EMIT) and writes the common L1B products every later SISTER step reads: an ENVI radiance cube (`L1B_RDN`), a location cube (`_LOC`: longitude, latitude, elevation) and an observation cube (`_OBS`: path length, sensor and sun angles, slope, aspect, cosine i, UTC time, Earth-sun distance). The SISTER V004 products made this way are archived at the ORNL DAAC (dataset 2335).
+SISTER (Space-based Imaging Spectroscopy and Thermal PathfindER) was JPL's pathfinder workflow for the Surface Biology and Geology (SBG) mission. Its first step, the L1 preprocess PGE, takes an imaging spectroscopy granule in its native format (AVIRIS-Classic, AVIRIS-NG, DESIS, PRISMA or EMIT) and writes the common L1B products every later SISTER step reads: an ENVI radiance cube (`L1B_RDN`), a location cube (`_LOC`: longitude, latitude, elevation) and an observation cube (`_OBS`: path length, sensor and sun angles, phase, slope, aspect, cosine i, UTC time). The SISTER V004 products made this way are archived at the ORNL DAAC (dataset 2335).
 
 The PGE itself is a thin driver: the sensor readers live in the `sister` package and the ENVI and image tools in `hytools`. This repository holds all three as git submodules, each pinned to the release the PGE's `install.sh` names, so the step can be cloned in one go:
 
@@ -41,7 +41,7 @@ pip install ./hytools     # hytools 1.5.0, after sister, as install.sh does
 - Official SISTER V004 output for the same line, to compare with: ORNL DAAC dataset 2335, "SISTER Workflow V004" (CMR collection `C3114843226-ORNL_CLOUD`, Earthdata login), files `EXPERIMENTAL-SISTER_AVCL_L1B_RDN_20110513T175417_004{.bin,.hdr,_LOC.bin,_LOC.hdr,_OBS.bin,_OBS.hdr}` under https://data.ornldaac.earthdata.nasa.gov/protected/sister/SISTER_Workflow_V004/data/.
 - AVIRIS-Classic needs nothing else. PRISMA and DESIS download Copernicus DEM tiles from `https://copernicus-dem-30m.s3.amazonaws.com/` at run time, and PRISMA also needs a Landsat reference tarball next to the raw file; those paths were not checked here.
 
-Resources for this scene: about 12.5 GB of memory (the radiance cube is held as float32 while it is averaged to 30 m) and about 12 GB of disk in the work folder (the 2.0 GB tarball expands to 9.2 GB). It takes about 4 minutes on 4 cores.
+Resources for this scene: 12.7 GB of memory at peak, so allow at least 14 GB (the radiance cube is held as float32 while it is averaged to 30 m), and about 12 GB of disk in the work folder while it runs (the 2.0 GB tarball expands to 9.2 GB in `temp/`; 1.9 GB remain at the end, mostly the copied tarball). It takes about 4 to 5 minutes on 4 cores and needs no network for AVIRIS-Classic.
 
 ## Running one flight line
 
@@ -56,7 +56,7 @@ cp /path/to/f110513t01p00r03.tar.gz .
 
 `--crid 004` gives the official V004 file names; the default is `000`. `--experimental True` (the default) adds the `EXPERIMENTAL-` prefix the archived files carry.
 
-The products land in a STAC catalog folder, one subfolder per dataset, each holding the `.bin`, `.hdr`, STAC `.json` and browse `.png`:
+The products land in a STAC catalog folder (`catalog.json`) with one subfolder per dataset. Each holds the `.bin`, `.hdr`, STAC `.json` and an empty `.met.json`; the radiance folder also holds the browse `.png`, the `.runconfig.json` and the `.log`:
 
 ```
 output/EXPERIMENTAL-SISTER_AVCL_L1B_RDN_20110513T175417_004/
@@ -74,3 +74,7 @@ Those three subfolders are the `--radiance_dataset`, `--location_dataset` and `-
 - **`/app` paths and `SISTER_APP_DIR`.** Not needed for this step: the PGE finds its own `data/` folder from its location. The `/app` layout matters only for `sister-isofit`, which hard-codes `/app/6s` and `/app/sRTMnet_v120.h5` (`SISTER_APP_DIR` is not read by the released code).
 - **ISOFIT reruns.** Not this step, but for the next one: never rerun an interrupted `sister-isofit` job in the same work folder; start again in an empty one.
 - **Reproducibility.** This step is deterministic. The later `sister-reflect_correct` step is not (its BRDF fit draws an unseeded random sample).
+
+## Checked
+
+Checked on 2026-10-25 from a fresh `git clone --recurse-submodules`, with the env built as above (Python 3.8.18, GDAL 3.6.2, numpy 1.19.2, scipy 1.9.3, scikit-image 0.19.3, numba 0.56.4, hy-tools 1.5.0), on `f110513t01p00r03.tar.gz`, with no network: the radiance and location cubes and all three headers are byte-identical to the official V004 `L1B_RDN`, `_LOC` and `_OBS` files at ORNL DAAC. The observation cube differs in one value of 599,260 (to-sun zenith, by 1.9e-6 degrees, the last bit of a float32). The run took 5 min 4 s on 4 cores with a peak of 12.7 GB.
