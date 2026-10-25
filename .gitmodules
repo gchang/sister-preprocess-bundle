@@ -1,0 +1,9 @@
+[submodule "sister-preprocess"]
+	path = sister-preprocess
+	url = https://github.com/sister-jpl/sister-preprocess.git
+[submodule "sister"]
+	path = sister
+	url = https://github.com/sister-jpl/sister.git
+[submodule "hytools"]
+	path = hytools
+	url = https://github.com/EnSpec/hytools.git
